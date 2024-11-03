@@ -1,0 +1,14 @@
+{% extends "base_generic.html" %}
+
+{% block content %}
+  <h2 class="text-center">Admin Dashboard</h2>
+  <div class="container">
+    <p>Welcome to the admin dashboard! Here you can manage users, view reports, and more.</p>
+    <ul>
+      <li><a href="{% url 'user_management' %}">Manage Users</a></li>
+      <li><a href="{% url 'update_user' 1 %}">Update User</a></li>  <!-- Example user ID -->
+      <li><a href="{% url 'add_language' %}">Add Programming Language</a></li>
+      <li><a href="{% url 'add_question' %}">Add Question</a></li>
+    </ul>
+  </div>
+{% endblock %}

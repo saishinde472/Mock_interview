@@ -1,0 +1,20 @@
+{% extends "base_generic.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Interview Report</h2>
+    <p><strong>Total Score:</strong> {{ total_score }}</p>
+    <p><strong>Feedback:</strong> {{ feedback }}</p>
+    <h3>Question Responses</h3>
+    <ul>
+        {% for answer in answers %}
+            <li>
+                <p><strong>Question:</strong> {{ answer.question.question_text }}</p>
+                <p><strong>Your Answer:</strong> {{ answer.student_response }}</p>
+                <p><strong>Score:</strong> {{ answer.score }}</p>
+            </li>
+        {% endfor %}
+    </ul>
+    <a href="{% url 'interview_report_pdf' %}" class="btn btn-primary">Download Report as PDF</a>
+</div>
+{% endblock %}

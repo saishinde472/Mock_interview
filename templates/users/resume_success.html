@@ -1,0 +1,11 @@
+{% extends "base_generic.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Resume Saved Successfully!</h2>
+    <a href="{% url 'generate_pdf' %}" class="btn btn-primary">Download PDF</a>
+
+
+    <p>Your resume has been successfully saved. You can go back to the <a href="{% url 'resume_builder' %}">Resume Builder</a> to make further edits.</p>
+</div>
+{% endblock %}
