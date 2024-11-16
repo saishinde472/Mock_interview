@@ -3,6 +3,8 @@ from django.urls import path, include
 from users import views as user_views
 from admin_panel import views as admin_panel_views
 from interview import views as interview_views
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),  # Django admin
@@ -28,13 +30,14 @@ urlpatterns = [
     path('add_question/', interview_views.add_question, name='add_question'),
     
     # User URLs for starting the interview and submitting answers
-     path('select_language/', interview_views.select_language, name='select_language'),  # Add this line
-        path('interview/start/<int:language_id>/', interview_views.start_interview, name='start_interview'), 
+    path('select_language/', interview_views.select_language, name='select_language'),  # Add this line
+    path('start/<int:language_id>/', interview_views.start_interview, name='start_interview'), 
     path('submit_answers/', interview_views.submit_answers, name='submit_answers'),
+    path('process_response/', interview_views.process_response, name='process_response'),
     
-    # URLs for viewing the interview report
-    path('interview_report/', interview_views.interview_report, name='interview_report'),
-    path('interview_report_pdf/', interview_views.interview_report_pdf, name='interview_report_pdf'),
+    # # URLs for viewing the interview report
+    # path('interview_report/', interview_views.interview_report, name='interview_report'),
+    # path('interview_report_pdf/', interview_views.interview_report_pdf, name='interview_report_pdf'),
 
-]
+]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

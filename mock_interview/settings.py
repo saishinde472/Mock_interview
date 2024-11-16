@@ -40,8 +40,16 @@ INSTALLED_APPS = [
      'users',
     'admin_panel',
     'interview',
+    'channels',
 ]
 
+ASGI_APPLICATION = "mock_interview.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

@@ -1,24 +1,59 @@
 {% extends "base_generic.html" %}
 
-{% block content %}
-<div class="container">
-    <h2>Mock Interview</h2>
-    <form method="POST" id="interview-form">
-        {% csrf_token %}
-        {% for question in questions %}
-        <div class="form-group">
-            <label>{{ question.question_text }}</label>
-            <audio controls id="audio_{{ question.id }}">
-                <source src="{{ audio_files.question.id }}" type="audio/mpeg">
-                Your browser does not support the audio tag.
-            </audio>
-            <textarea class="form-control" name="question_{{ question.id }}" placeholder="Your answer..."></textarea>
-        </div>
-        {% endfor %}
-        <button type="submit" class="btn btn-primary">Submit Answers</button>
-    </form>
-</div>
-<script>
-// Optional: You can add JavaScript to enhance audio playback or recording
-</script>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Real-Time Interview</title>
+</head>
+<body>
+    <h2>Live Interview</h2>
+    <video id="localVideo" autoplay muted></video>
+    <video id="remoteVideo" autoplay></video>
+    <button onclick="startCall()">Start Call</button>
+    
+    <script>
+        let localStream, remoteStream;
+        let peerConnection;
+
+        // WebRTC configuration
+        const config = {
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+        };
+
+        async function startCall() {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            document.getElementById('localVideo').srcObject = localStream;
+
+            // Set up WebRTC peer connection
+            peerConnection = new RTCPeerConnection(config);
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            peerConnection.ontrack = (event) => {
+                if (!remoteStream) {
+                    remoteStream = new MediaStream();
+                    document.getElementById('remoteVideo').srcObject = remoteStream;
+                }
+                remoteStream.addTrack(event.track);
+            };
+
+            // Signal the offer
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+
+            // Send the offer to the server
+            fetch('/interview/start_offer/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                body: JSON.stringify({ offer: peerConnection.localDescription })
+            }).then(response => response.json())
+            .then(data => handleAnswer(data.answer));
+        }
+
+        function handleAnswer(answer) {
+            peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        }
+    </script>
+</body>
+</html>
+

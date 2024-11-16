@@ -41,11 +41,22 @@ def add_question(request):
 
     return render(request, 'interview/add_question.html', {'form': form, 'languages': languages})
 # interviews/views.py
+# interviews/views.py
 
 import pyttsx3
 import os
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import ProgrammingLanguage, Question, StudentAnswer
+from django.http import JsonResponse
+import speech_recognition as sr  # For Speech-to-Text
+from django.template.loader import render_to_string
+from xhtml2pdf import pisa
+from django.http import HttpResponse
 
 def save_question_audio(question_text, question_id):
+    """Save question audio using TTS and return path."""
     engine = pyttsx3.init()
     audio_file_path = f'media/audio/question_{question_id}.mp3'
     engine.save_to_file(question_text, audio_file_path)
@@ -53,71 +64,46 @@ def save_question_audio(question_text, question_id):
     return audio_file_path
 
 @login_required
-def start_interview(request):
- 
-    if request.method == 'POST':
-        form = SelectLanguageForm(request.POST)
-        if form.is_valid():
-            language = form.cleaned_data['language']
-            questions = Question.objects.filter(language=language)
+def start_interview(request, language_id):
+    # Filter questions by language_id
+    questions = Question.objects.filter(language_id=language_id)
+    
+    # Generate audio for each question
+    audio_files = {}
+    for question in questions:
+        audio_file_path = save_question_audio(question.question_text, question.id)
+        audio_files[question.id] = audio_file_path
 
-            # Save audio files for questions
-            audio_files = {}
-            for question in questions:
-                audio_file_path = save_question_audio(question.question_text, question.id)
-                audio_files[question.id] = audio_file_path  # Store path for use in template
-
-            return render(request, 'interview/interview.html', {'questions': questions, 'audio_files': audio_files})
-    else:
-        form = SelectLanguageForm()
-    return render(request, 'interview/select_language.html', {'form': form})
-
-
-
+    return render(request, 'interview/interview.html', {
+        'questions': questions,
+        'audio_files': audio_files
+    })
 @login_required
-def submit_answers(request):
+def process_response(request):
     if request.method == 'POST':
-        for key, value in request.POST.items():
-            if key.startswith('question_'):
-                question_id = int(key.split('_')[1])
-                question = Question.objects.get(id=question_id)
-                answer = StudentAnswer(
-                    student=request.user,
-                    question=question,
-                    student_response=value,
-                    score=10 if value.strip().lower() == question.answer.strip().lower() else 0  # Compare with the stored answer
-                )
-                answer.save()
-        return redirect('interview_report')
+        question_id = request.POST.get('question_id')
+        user_audio = request.FILES.get('user_audio')
+
+        # Save the audio file temporarily
+        file_path = os.path.join(settings.MEDIA_ROOT, 'temp', f'{request.user.id}_response.wav')
+        with open(file_path, 'wb') as f:
+            f.write(user_audio.read())
+        
+        # Transcribe the audio
+        user_response = transcribe_audio(file_path)
+
+        question = Question.objects.get(id=question_id)
+        score = 10 if user_response.lower() == question.answer.lower() else 0
+        StudentAnswer.objects.create(
+            student=request.user,
+            question=question,
+            student_response=user_response,
+            score=score
+        )
+        return JsonResponse({'status': 'success', 'score': score})
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
-@login_required
-def interview_report(request):
-    answers = StudentAnswer.objects.filter(student=request.user)
-    total_score = sum(answer.score for answer in answers)
-    feedback = "Great work!" if total_score > 80 else "Needs improvement"
-    context = {
-        'answers': answers,
-        'total_score': total_score,
-        'feedback': feedback,
-    }
-    return render(request, 'interview/report.html', context)
 
-@login_required
-def interview_report_pdf(request):
-    answers = StudentAnswer.objects.filter(student=request.user)
-    total_score = sum(answer.score for answer in answers)
-    feedback = "Great work!" if total_score > 80 else "Needs improvement"
-    context = {
-        'answers': answers,
-        'total_score': total_score,
-        'feedback': feedback,
-    }
-    html = render_to_string('interview/report_pdf.html', context)
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'inline; filename="interview_report.pdf"'
-    pisa.CreatePDF(html, dest=response)
-    return response
 @login_required
 def select_language(request):
     languages = ProgrammingLanguage.objects.all()
@@ -129,3 +115,34 @@ def select_language(request):
         else:
             messages.error(request, 'Please select a language.')
     return render(request, 'interview/select_language.html', {'languages': languages})
+# interviews/views.py
+
+from google.cloud import speech
+from django.conf import settings
+
+def transcribe_audio(file_path):
+    client = speech.SpeechClient()
+    with open(file_path, "rb") as audio_file:
+        audio_content = audio_file.read()
+    audio = speech.RecognitionAudio(content=audio_content)
+    config = speech.RecognitionConfig(
+        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+        language_code="en-US",
+    )
+
+    response = client.recognize(config=config, audio=audio)
+    return response.results[0].alternatives[0].transcript if response.results else ""
+
+
+# Example in views.py
+
+def save_audio_file(user, audio_data):
+    file_path = os.path.join(settings.MEDIA_ROOT, 'interviews', f'{user.id}_response.wav')
+    with open(file_path, 'wb') as f:
+        f.write(audio_data)
+    return file_path
+
+def submit_answers(request):
+    # Your function logic here
+    return HttpResponse("Answers submitted successfully!")
+
